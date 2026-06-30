@@ -1,0 +1,49 @@
+# ── Data Ingestion ─────────────────────────────────────────────
+requests==2.32.3          # SEC EDGAR API calls
+beautifulsoup4==4.12.3    # strip HTML from raw 10-K/10-Q documents
+lxml==5.2.2               # faster HTML parser for BeautifulSoup
+tqdm==4.66.4              # progress bars during bulk ingestion
+
+# ── Data & Analysis ────────────────────────────────────────────
+pandas==2.2.2             # filing metadata, sentiment time series, tone-shift calc
+numpy==1.26.4             # numerical ops, cosine similarity fallback
+scipy==1.13.1             # t-test for price-shift correlation
+yfinance==0.2.40          # pull stock prices post-filing
+
+# ── NLP / FinBERT ──────────────────────────────────────────────
+transformers==4.41.2      # FinBERT pipeline (yiyanghkust/finbert-tone)
+torch==2.3.1              # FinBERT backend — CPU only is fine for this
+accelerate==0.30.0        # speeds up HuggingFace model loading
+
+# ── Embeddings ─────────────────────────────────────────────────
+sentence-transformers==3.0.0   # all-MiniLM-L6-v2 for chunk embeddings
+
+# ── Vector DB ──────────────────────────────────────────────────
+pgvector==0.3.2           # Python client for pgvector Postgres extension
+psycopg2-binary==2.9.9    # Postgres driver (binary = no C compiler needed)
+sqlalchemy==2.0.30        # ORM layer — LangChain pgvector integration uses this
+
+# ── RAG / LLM ──────────────────────────────────────────────────
+langchain==1.3.11         # core RAG chain, text splitters, retrieval
+langchain-openai==1.3.3   # OpenAI LLM + embeddings integration
+openai==1.35.3            # direct OpenAI client for RAG answer generation
+tiktoken==0.7.0           # token counting for chunking (OpenAI tokenizer)
+
+# ── Backend API ────────────────────────────────────────────────
+fastapi==0.111.0          # sentiment API + RAG query endpoint
+uvicorn==0.30.1           # ASGI server to run FastAPI
+pydantic==2.7.4           # request/response validation (FastAPI uses this)
+python-dotenv==1.0.1      # load .env for API keys
+
+# ── Frontend ───────────────────────────────────────────────────
+streamlit==1.35.0         # sentiment trend chart + RAG Q&A interface
+plotly==5.22.0            # interactive sentiment time series charts
+
+# ── Subscriptions / Email ──────────────────────────────────────
+resend==2.2.0             # transactional email for tone-shift alerts
+# sqlite3 is built into Python — no install needed
+
+# ── Dev / Testing ──────────────────────────────────────────────
+pytest==8.2.2             # unit tests for ingestion, chunking, sentiment
+httpx==0.27.0             # async HTTP client — needed for FastAPI test client
+python-multipart==0.0.9   # file upload support in FastAPI if needed
