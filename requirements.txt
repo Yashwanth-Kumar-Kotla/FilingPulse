@@ -1,3 +1,6 @@
+requests
+transformers
+bs4
 # ── Data Ingestion ─────────────────────────────────────────────
 requests==2.32.3          # SEC EDGAR API calls
 beautifulsoup4==4.12.3    # strip HTML from raw 10-K/10-Q documents
