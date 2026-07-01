@@ -1,2 +1,13 @@
 .env
 venv
+__pycache__/
+*.pyc
+data/raw/
+data/cleaned/
+data/chunks.json
+data/chunks_preview.json
+data/sentiment.json
+data/tone_shifts.json
+data/price_signal.json
+.DS_Store
+subscriptions.db

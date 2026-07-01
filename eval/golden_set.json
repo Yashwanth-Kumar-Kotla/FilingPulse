@@ -1,0 +1,142 @@
+[
+  {
+    "question": "What risks did Apple management highlight related to supply chain concentration?",
+    "expected_ticker": "AAPL",
+    "expected_date": "2024-11-01",
+    "expected_form": "10-K",
+    "answer_hint": "Reliance on single or limited sources for components and outsourced manufacturing partners."
+  },
+  {
+    "question": "How did JPMorgan describe credit quality trends in consumer lending?",
+    "expected_ticker": "JPM",
+    "expected_date": "2024-04-15",
+    "expected_form": "10-Q",
+    "answer_hint": "Commentary on delinquency rates and net charge-offs in consumer banking."
+  },
+  {
+    "question": "What did Tesla management say about production ramp challenges?",
+    "expected_ticker": "TSLA",
+    "expected_date": "2024-01-24",
+    "expected_form": "10-K",
+    "answer_hint": "Discussion of manufacturing scale-up and factory utilization."
+  },
+  {
+    "question": "What macroeconomic risks did Delta Air Lines cite affecting demand?",
+    "expected_ticker": "DAL",
+    "expected_date": "2024-02-13",
+    "expected_form": "10-K",
+    "answer_hint": "Fuel price volatility and consumer travel demand sensitivity to the economy."
+  },
+  {
+    "question": "How did Exxon Mobil discuss commodity price exposure?",
+    "expected_ticker": "XOM",
+    "expected_date": "2024-02-01",
+    "expected_form": "10-K",
+    "answer_hint": "Sensitivity of results to crude oil and natural gas price fluctuations."
+  },
+  {
+    "question": "What cybersecurity risks did CrowdStrike disclose?",
+    "expected_ticker": "CRWD",
+    "expected_date": "2024-03-06",
+    "expected_form": "10-K",
+    "answer_hint": "Risk of undetected vulnerabilities and evolving threat landscape."
+  },
+  {
+    "question": "What did Ford management say about EV transition costs?",
+    "expected_ticker": "F",
+    "expected_date": "2024-02-06",
+    "expected_form": "10-K",
+    "answer_hint": "Capital investment required for electrification and near-term margin pressure."
+  },
+  {
+    "question": "How did Goldman Sachs discuss trading revenue volatility?",
+    "expected_ticker": "GS",
+    "expected_date": "2024-04-15",
+    "expected_form": "10-Q",
+    "answer_hint": "Market-making and trading results fluctuate with market conditions."
+  },
+  {
+    "question": "What risk factors did Uber cite about regulatory classification of drivers?",
+    "expected_ticker": "UBER",
+    "expected_date": "2024-02-14",
+    "expected_form": "10-K",
+    "answer_hint": "Ongoing litigation and legislation on worker classification."
+  },
+  {
+    "question": "How did Microsoft describe risks from AI investment spend?",
+    "expected_ticker": "MSFT",
+    "expected_date": "2024-07-30",
+    "expected_form": "10-K",
+    "answer_hint": "Elevated capital expenditures on AI infrastructure and uncertain returns."
+  },
+  {
+    "question": "What did American Airlines say about labor cost pressures?",
+    "expected_ticker": "AAL",
+    "expected_date": "2024-02-22",
+    "expected_form": "10-K",
+    "answer_hint": "New pilot and labor contracts increasing operating expenses."
+  },
+  {
+    "question": "How did Freeport-McMoRan describe copper price sensitivity?",
+    "expected_ticker": "FCX",
+    "expected_date": "2024-02-08",
+    "expected_form": "10-K",
+    "answer_hint": "Earnings sensitivity to copper, gold, and molybdenum prices."
+  },
+  {
+    "question": "What did Carnival Corporation say about post-pandemic demand recovery?",
+    "expected_ticker": "CCL",
+    "expected_date": "2024-03-22",
+    "expected_form": "10-K",
+    "answer_hint": "Booking volumes and pricing recovering toward historical levels."
+  },
+  {
+    "question": "How did Nvidia discuss export control risk on chip sales?",
+    "expected_ticker": "NVDA",
+    "expected_date": "2024-02-21",
+    "expected_form": "10-K",
+    "answer_hint": "US government restrictions on exports to certain countries, including China."
+  },
+  {
+    "question": "What did Wells Fargo disclose about regulatory consent orders?",
+    "expected_ticker": "WFC",
+    "expected_date": "2024-04-12",
+    "expected_form": "10-Q",
+    "answer_hint": "Ongoing remediation under regulatory consent orders and asset cap."
+  },
+  {
+    "question": "How did US Steel describe pricing environment for steel products?",
+    "expected_ticker": "X",
+    "expected_date": "2024-02-04",
+    "expected_form": "10-K",
+    "answer_hint": "Cyclicality of steel prices tied to global demand and capacity utilization."
+  },
+  {
+    "question": "What did Palo Alto Networks say about platformization strategy?",
+    "expected_ticker": "PANW",
+    "expected_date": "2024-08-19",
+    "expected_form": "10-K",
+    "answer_hint": "Bundling security products into unified platforms to drive customer retention."
+  },
+  {
+    "question": "How did Chevron discuss refining margin trends?",
+    "expected_ticker": "CVX",
+    "expected_date": "2024-02-02",
+    "expected_form": "10-K",
+    "answer_hint": "Refining margins fluctuating with crack spreads and utilization rates."
+  },
+  {
+    "question": "What did General Motors say about battery supply constraints?",
+    "expected_ticker": "GM",
+    "expected_date": "2024-01-30",
+    "expected_form": "10-K",
+    "answer_hint": "Securing battery raw materials and cell manufacturing capacity for EV production."
+  },
+  {
+    "question": "How did Occidental Petroleum describe carbon capture investments?",
+    "expected_ticker": "OXY",
+    "expected_date": "2024-02-22",
+    "expected_form": "10-K",
+    "answer_hint": "Investment in direct air capture and low-carbon ventures business."
+  }
+]

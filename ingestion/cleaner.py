@@ -8,8 +8,8 @@ SEC_BOILERPLATE_PATTERNS = [
     r"UNITED STATES\s+SECURITIES AND EXCHANGE COMMISSION.*?Washington.*?D\.C\.",
     r"FORM\s+10-[KQ]",
     r"For the (?:fiscal|quarterly|annual) (?:year|period).*?\d{4}",
-    r"Commission file number.*?\n",
-    r"(?:Indicate by check mark|Check the appropriate box).*?\n",
+    r"Commission [Ff]ile [Nn]umber\s*:?\s*[\d\-]+",
+    r"(?:Indicate by check mark|Check the appropriate box).{0,300}?(?:\.\s|Yes|No)",
 ]
 
 # MD&A and Risk Factors section headers — these are the only sections we want
@@ -41,6 +41,15 @@ def clean_html(raw_html: str) -> str:
     """
     # Step 1: parse
     soup = BeautifulSoup(raw_html, "lxml")
+
+    # Step 1b: strip inline-XBRL hidden fact blocks (ix:header/ix:hidden) —
+    # these hold every tagged data value as raw text and would otherwise
+    # dominate get_text() output on modern SEC filings.
+    for tag in soup.find_all(lambda t: t.name and "header" in t.name.lower()
+                              and t.name.lower().startswith("ix")):
+        tag.decompose()
+    for tag in soup.find_all(style=re.compile(r"display\s*:\s*none", re.IGNORECASE)):
+        tag.decompose()
 
     # Step 2: remove noise tags entirely
     for tag in soup(["script", "style", "table", "thead",

@@ -11,7 +11,7 @@ tqdm==4.66.4              # progress bars during bulk ingestion
 pandas==2.2.2             # filing metadata, sentiment time series, tone-shift calc
 numpy==1.26.4             # numerical ops, cosine similarity fallback
 scipy==1.13.1             # t-test for price-shift correlation
-yfinance==0.2.40          # pull stock prices post-filing
+yfinance>=1.5.1           # pull stock prices post-filing (0.2.40 breaks against Yahoo's current API)
 
 # ── NLP / FinBERT ──────────────────────────────────────────────
 transformers==4.41.2      # FinBERT pipeline (yiyanghkust/finbert-tone)
@@ -29,7 +29,7 @@ sqlalchemy==2.0.30        # ORM layer — LangChain pgvector integration uses th
 # ── RAG / LLM ──────────────────────────────────────────────────
 langchain==1.3.11         # core RAG chain, text splitters, retrieval
 langchain-openai==1.3.3   # OpenAI LLM + embeddings integration
-openai==1.35.3            # direct OpenAI client for RAG answer generation
+openai==2.26.0             # direct OpenAI client for RAG answer generation (min version required by langchain-openai 1.3.3)
 tiktoken==0.7.0           # token counting for chunking (OpenAI tokenizer)
 
 # ── Backend API ────────────────────────────────────────────────
