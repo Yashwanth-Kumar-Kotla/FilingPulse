@@ -11,7 +11,7 @@ CLEANED_DIR = Path("data/cleaned")
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 CLEANED_DIR.mkdir(parents=True, exist_ok=True)
 
-TEST_MODE    = True   # flip to False for full 50-company run
+TEST_MODE    = False  # flip to False for full 50-company run
 TEST_TICKERS = ["AAPL", "JPM", "CRWD"]
 
 ALL_TICKERS = [

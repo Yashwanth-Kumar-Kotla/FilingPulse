@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS filing_chunks (
     chunk_text       TEXT NOT NULL,
     sentiment_label  TEXT,
     sentiment_score  DOUBLE PRECISION,
-    embedding        vector(384)
+    embedding        vector(1536)
 );
 
 CREATE INDEX IF NOT EXISTS filing_chunks_embedding_idx

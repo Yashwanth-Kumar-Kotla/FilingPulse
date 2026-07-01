@@ -2,15 +2,15 @@ import os
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from sentence_transformers import SentenceTransformer
 from sqlalchemy import create_engine, text
+
+from db.vector_store import embed_texts
 
 load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql://filingpulse:filingpulse@localhost:5432/filingpulse"
 )
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 TOP_K = 5
 SIMILARITY_THRESHOLD = 0.3
 
@@ -19,16 +19,8 @@ SYSTEM_PROMPT = (
     "(ticker, date, form) each piece of information comes from."
 )
 
-_embedder = None
 _engine = None
 _llm = None
-
-
-def _load_embedder():
-    global _embedder
-    if _embedder is None:
-        _embedder = SentenceTransformer(EMBEDDING_MODEL)
-    return _embedder
 
 
 def _get_engine():
@@ -46,8 +38,7 @@ def _get_llm():
 
 
 def retrieve_chunks(question: str, ticker: str | None = None, date: str | None = None) -> list[dict]:
-    embedder = _load_embedder()
-    question_embedding = embedder.encode(question).tolist()
+    question_embedding = embed_texts([question])[0]
 
     filters = []
     params = {"embedding": str(question_embedding), "top_k": TOP_K}

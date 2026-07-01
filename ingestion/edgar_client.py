@@ -44,27 +44,11 @@ def get_ticker_cik_map(tickers: list[str] = MY_TICKERS) -> dict:
     return result
 
 
-def get_filing_list(cik: str, years_back: int = 5,
-                    headers: dict = HEADERS) -> list[dict]:
-    """
-    Step 2: Given a CIK, returns list of 10-K and 10-Q filings
-    from the last `years_back` years.
-    Each item: {form, filingDate, accessionNumber, primaryDocument}
-    """
-    from datetime import datetime, timedelta
-    cutoff = (datetime.today() - timedelta(days=365 * years_back)).strftime("%Y-%m-%d")
-
-    url  = f"https://data.sec.gov/submissions/CIK{cik}.json"
-    resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
-    data = resp.json()
-
-    recent   = data["filings"]["recent"]
-    filings  = []
-
-    for i in range(len(recent["form"])):
-        form = recent["form"][i]
-        date = recent["filingDate"][i]
+def _extract_forms(block: dict, cutoff: str) -> list[dict]:
+    filings = []
+    for i in range(len(block["form"])):
+        form = block["form"][i]
+        date = block["filingDate"][i]
 
         if form not in ("10-K", "10-Q"):
             continue
@@ -74,9 +58,50 @@ def get_filing_list(cik: str, years_back: int = 5,
         filings.append({
             "form":            form,
             "filingDate":      date,
-            "accessionNumber": recent["accessionNumber"][i],
-            "primaryDocument": recent["primaryDocument"][i],
+            "accessionNumber": block["accessionNumber"][i],
+            "primaryDocument": block["primaryDocument"][i],
         })
+
+    return filings
+
+
+def get_filing_list(cik: str, years_back: int = 5,
+                    headers: dict = HEADERS) -> list[dict]:
+    """
+    Step 2: Given a CIK, returns list of 10-K and 10-Q filings
+    from the last `years_back` years.
+    Each item: {form, filingDate, accessionNumber, primaryDocument}
+
+    High-volume filers (e.g. banks issuing many 8-Ks/structured notes)
+    can have their `recent` block cover only a few months — older 10-Ks/10-Qs
+    roll off into paginated `files` entries, which we page through here
+    until we've covered the full `years_back` window.
+    """
+    from datetime import datetime, timedelta
+    cutoff = (datetime.today() - timedelta(days=365 * years_back)).strftime("%Y-%m-%d")
+
+    url  = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    data = resp.json()
+
+    recent  = data["filings"]["recent"]
+    filings = _extract_forms(recent, cutoff)
+
+    oldest_date_in_recent = min(recent["filingDate"]) if recent["filingDate"] else cutoff
+
+    if oldest_date_in_recent > cutoff:
+        for file_entry in data["filings"].get("files", []):
+            if file_entry["filingTo"] < cutoff:
+                break
+
+            time.sleep(0.15)
+            page_resp = requests.get(
+                f"https://data.sec.gov/submissions/{file_entry['name']}",
+                headers=headers,
+            )
+            page_resp.raise_for_status()
+            filings.extend(_extract_forms(page_resp.json(), cutoff))
 
     return filings
 

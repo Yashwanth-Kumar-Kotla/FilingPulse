@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 from sqlalchemy import create_engine, text
 
 load_dotenv()
@@ -11,16 +11,29 @@ load_dotenv()
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql://filingpulse:filingpulse@localhost:5432/filingpulse"
 )
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_BATCH_SIZE = 100
 
-_model = None
+_client = None
 
 
-def _load_embedder():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(EMBEDDING_MODEL)
-    return _model
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
+
+
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    client = _get_client()
+    embeddings = []
+
+    for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+        batch = texts[i:i + EMBEDDING_BATCH_SIZE]
+        response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
+        embeddings.extend(item.embedding for item in response.data)
+
+    return embeddings
 
 
 def _load_sentiment_lookup(sentiment_path: str = "data/sentiment.json") -> dict:
@@ -42,15 +55,17 @@ def store_chunks(
     sentiment_lookup = _load_sentiment_lookup(sentiment_path)
     tone_shifts = json.loads(Path(tone_shifts_path).read_text())
 
-    embedder = _load_embedder()
     engine = create_engine(DATABASE_URL)
 
+    print(f"  Embedding {len(chunks)} chunks with {EMBEDDING_MODEL}...")
+    embeddings = embed_texts([c["text"] for c in chunks])
+
     with engine.begin() as conn:
-        for chunk in chunks:
+        conn.execute(text("TRUNCATE filing_chunks RESTART IDENTITY"))
+
+        for chunk, embedding in zip(chunks, embeddings):
             key = (chunk["ticker"], chunk["filing_date"], chunk["form"])
             chunk_score = sentiment_lookup.get((key, chunk["chunk_index"]), {})
-
-            embedding = embedder.encode(chunk["text"]).tolist()
 
             conn.execute(
                 text("""
