@@ -13,10 +13,11 @@ CREATE TABLE IF NOT EXISTS filing_chunks (
     embedding        vector(1536)
 );
 
-CREATE INDEX IF NOT EXISTS filing_chunks_embedding_idx
-    ON filing_chunks
-    USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+-- No ivfflat index: at this corpus size (tens of thousands of rows), pgvector's
+-- own guidance is that exact brute-force search stays fast and is more accurate
+-- than an approximate index — ivfflat only pays off at ~1M+ rows. It was also
+-- measured at 4.5x the size of the actual embedding data, which matters on a
+-- disk-constrained hosted Postgres plan.
 
 CREATE INDEX IF NOT EXISTS filing_chunks_ticker_idx ON filing_chunks (ticker);
 
@@ -32,3 +33,14 @@ CREATE TABLE IF NOT EXISTS filing_sentiment (
 );
 
 CREATE INDEX IF NOT EXISTS filing_sentiment_ticker_idx ON filing_sentiment (ticker);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id                          SERIAL PRIMARY KEY,
+    email                       TEXT NOT NULL,
+    ticker                      TEXT NOT NULL,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_notified_filing_date   DATE,
+    UNIQUE (email, ticker)
+);
+
+CREATE INDEX IF NOT EXISTS subscriptions_ticker_idx ON subscriptions (ticker);

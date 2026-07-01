@@ -1,0 +1,6 @@
+# Lightweight requirements for the Streamlit dashboard (app/streamlit_app.py).
+# It only talks to the FastAPI service over HTTP — no DB or ML libraries needed.
+
+streamlit==1.35.0
+plotly==5.22.0
+requests==2.32.3

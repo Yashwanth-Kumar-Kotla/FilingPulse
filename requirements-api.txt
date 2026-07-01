@@ -1,0 +1,14 @@
+# Lightweight requirements for the FastAPI service (api/main.py).
+# Deliberately excludes torch/transformers/sentence-transformers/scipy/pandas —
+# those are only needed by the offline ingestion+ML pipeline (run locally),
+# not by the API, which just queries pgvector and calls OpenAI.
+
+fastapi==0.111.0
+uvicorn==0.30.1
+pydantic==2.7.4
+python-dotenv==1.0.1
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+openai==2.26.0
+langchain-openai==1.3.3
+resend==2.2.0
