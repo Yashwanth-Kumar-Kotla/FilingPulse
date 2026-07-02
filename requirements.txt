@@ -37,6 +37,7 @@ fastapi==0.111.0          # sentiment API + RAG query endpoint
 uvicorn==0.30.1           # ASGI server to run FastAPI
 pydantic==2.7.4           # request/response validation (FastAPI uses this)
 python-dotenv==1.0.1      # load .env for API keys
+slowapi==0.1.10           # per-IP rate limiting on /query and /subscribe
 
 # ── Frontend ───────────────────────────────────────────────────
 streamlit==1.35.0         # sentiment trend chart + RAG Q&A interface

@@ -1,8 +1,11 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy import create_engine, text
 
 from db.subscriptions import init_db, subscribe
@@ -17,6 +20,13 @@ DATABASE_URL = os.getenv(
 app = FastAPI(title="FilingPulse API")
 engine = create_engine(DATABASE_URL)
 
+# In-memory, per-IP rate limiting. Resets on redeploy/restart and only works
+# correctly for a single instance — acceptable here since /query costs real
+# OpenAI spend per call and this is a single-instance deployment.
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 @app.on_event("startup")
 def on_startup():
@@ -24,7 +34,7 @@ def on_startup():
 
 
 class QueryRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=500)
     ticker: str | None = None
     date: str | None = None
 
@@ -55,11 +65,13 @@ def sentiment(ticker: str):
 
 
 @app.post("/query")
-def query(req: QueryRequest):
+@limiter.limit("10/minute")
+def query(request: Request, req: QueryRequest):
     return answer_question(req.question, req.ticker, req.date)
 
 
 @app.post("/subscribe")
-def subscribe_endpoint(req: SubscribeRequest):
+@limiter.limit("5/hour")
+def subscribe_endpoint(request: Request, req: SubscribeRequest):
     subscribe(req.email, req.ticker)
     return {"status": "subscribed", "email": req.email, "ticker": req.ticker.upper()}
