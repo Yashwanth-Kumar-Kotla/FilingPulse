@@ -1,5 +1,7 @@
 # FilingPulse
 
+**[Live app](https://filingpilse-app.onrender.com)** — hosted on Render's free tier, so the first request after idle time takes 30-60s to wake up.
+
 **FilingPulse** detects quarter-over-quarter shifts in management tone across SEC 10-K/10-Q filings, correlates those shifts against forward stock price movement, and lets you ask natural-language questions about *why* tone shifted — with answers grounded in cited source passages, not hallucinated.
 
 It is not a "chat with your PDFs" RAG demo. The differentiator is the analytical layer underneath the chat: FinBERT sentiment scoring → statistical tone-shift detection → price correlation → retrieval-augmented Q&A that can reason over *both* the computed metrics and the underlying filing text.
@@ -16,9 +18,10 @@ Current corpus: **49 companies** (financials, tech, cyclicals), **967 filings**,
 4. [Repository layout](#repository-layout)
 5. [Tech stack](#tech-stack)
 6. [Running it](#running-it)
-7. [API reference](#api-reference)
-8. [Key design decisions](#key-design-decisions)
-9. [Known limitations](#known-limitations)
+7. [Deploying it](#deploying-it)
+8. [API reference](#api-reference)
+9. [Key design decisions](#key-design-decisions)
+10. [Known limitations](#known-limitations)
 
 ---
 
@@ -38,15 +41,14 @@ flowchart TB
         PRICE["ml/price_signal.py\nprice correlation + t-test"]
     end
 
-    subgraph storage["Storage"]
-        PG[("Postgres + pgvector\nfiling_chunks, filing_sentiment")]
-        SQLITE[("SQLite\nsubscriptions.db")]
+    subgraph storage["Storage (Render Postgres)"]
+        PG[("pgvector\nfiling_chunks, filing_sentiment, subscriptions")]
         JSON["data/*.json\nintermediate artifacts"]
     end
 
     subgraph serving["Serving layer"]
         RAG["rag/query.py\nretrieval + grounded LLM answer"]
-        API["FastAPI\n/sentiment /query /subscribe"]
+        API["FastAPI\n/sentiment /query /subscribe\n(rate-limited per IP)"]
         UI["Streamlit dashboard\ntrend chart + Q&A + alerts"]
     end
 
@@ -56,9 +58,7 @@ flowchart TB
     SHIFT --> PRICE --> JSON
     YF --> PRICE
     JSON -->|"db/vector_store.py\n(OpenAI embeddings)"| PG
-    PG --> RAG --> API
-    SQLITE --> API
-    API --> UI
+    PG --> RAG --> API --> UI
 ```
 
 Everything above the "Serving layer" runs offline/batch (it's the analytical backbone); everything in the serving layer is what a user actually touches.
@@ -84,8 +84,8 @@ flowchart LR
 | Step | Module | What it does | Why it matters |
 |---|---|---|---|
 | 1 | `ingestion/edgar_client.py` | Resolves each ticker to its 10-digit CIK via SEC's `company_tickers.json`. | EDGAR indexes everything by CIK, not ticker. |
-| 2 | `ingestion/edgar_client.py` | Pulls the filing list for a CIK, filters to `10-K`/`10-Q`, last 5 years. **Pages through SEC's historical submission files** for high-volume filers (banks file thousands of 8-Ks/notes, which push older 10-Ks/10-Qs out of the `recent` window). | Without pagination, JPM/GS/BAC-style filers silently lose most of their history — this was a real bug we found and fixed. |
-| 3a/3b | `ingestion/edgar_client.py`, `ingestion/cleaner.py` | Downloads raw HTML, strips scripts/tables/nav, **strips inline-XBRL hidden fact blocks** (`ix:header`/`display:none`), then extracts just the MD&A and Risk Factors sections via regex section markers. | Modern SEC filings embed the *entire* XBRL data model as hidden text in the HTML — without stripping it, "cleaned" text is mostly machine-readable tag soup, not prose. Also fixed a `DOTALL` regex bug that could silently swallow 99% of a filing's text (see [Known limitations](#known-limitations)). |
+| 2 | `ingestion/edgar_client.py` | Pulls the filing list for a CIK, filters to `10-K`/`10-Q`, last 5 years. **Pages through SEC's historical submission files** for high-volume filers instead of trusting the `recent` block alone. | Banks like JPM/GS/BAC file thousands of 8-Ks/structured notes, which push their older 10-Ks/10-Qs out of `recent` entirely — without pagination you silently get ~1 year of history instead of 5. |
+| 3a/3b | `ingestion/edgar_client.py`, `ingestion/cleaner.py` | Downloads raw HTML, strips scripts/tables/nav, **strips inline-XBRL hidden fact blocks** (`ix:header`/`display:none`), then extracts just the MD&A and Risk Factors sections via regex section markers. | Modern SEC filings embed the *entire* XBRL data model as hidden text in the HTML — skip the strip and "cleaned" text is mostly machine tag soup, not prose. |
 | 4 | `ingestion/chunker.py` | Splits cleaned text into 512-token chunks (FinBERT's hard limit) with 50-token overlap. | Overlap prevents losing context at chunk boundaries — important for both sentiment accuracy and RAG retrieval coherence. |
 | 5 | `ml/sentiment.py` | Runs FinBERT (`yiyanghkust/finbert-tone`) on every chunk → `{label, confidence, numeric}`, aggregated into a token-weighted average per filing. | Domain-tuned model beats general LLMs on financial jargon, costs nothing per call, and is deterministic (no sampling variance). |
 | 6 | `ml/tone_shift.py` | Sorts by ticker + date, computes `sentiment_shift = current − previous`, flags `material_shift` when `|shift| > 0.15`. | Turns a raw score into an actionable signal: "did tone change enough to matter this quarter?" |
@@ -145,9 +145,12 @@ sequenceDiagram
 ```
 FilingPulse/
 ├── .env                      # API keys — never commit
-├── docker-compose.yml        # postgres+pgvector / api / streamlit services
+├── docker-compose.yml        # postgres+pgvector / api / streamlit services (local dev)
 ├── Dockerfile
-├── requirements.txt
+├── runtime.txt                # pins Render to Python 3.11 (3.13+ lacks prebuilt wheels for several deps)
+├── requirements.txt           # full pipeline deps (torch/transformers included) — local use only
+├── requirements-api.txt       # lightweight deps for the deployed FastAPI service
+├── requirements-web.txt       # lightweight deps for the deployed Streamlit service
 │
 ├── data/
 │   ├── raw/                  # downloaded HTML filings (gitignored)
@@ -171,7 +174,7 @@ FilingPulse/
 ├── db/
 │   ├── schema.sql             # pgvector table definitions
 │   ├── vector_store.py        # Step 8: OpenAI embeddings → pgvector
-│   └── subscriptions.py       # SQLite subscription CRUD + Resend alerts
+│   └── subscriptions.py       # Postgres subscription CRUD + Resend alerts
 │
 ├── rag/
 │   └── query.py               # Step 9: rewrite → retrieve → ground → answer
@@ -198,13 +201,13 @@ FilingPulse/
 |---|---|---|
 | Sentiment | FinBERT (`yiyanghkust/finbert-tone`) | Finance-domain fine-tuning beats general LLMs on filing jargon; free, deterministic, runs on CPU. |
 | Embeddings | OpenAI `text-embedding-3-small` (1536-dim) | Better retrieval quality on casually-phrased questions than a general-purpose local model (see [Key design decisions](#key-design-decisions)); embedding the entire 73K-chunk corpus costs well under $1. |
-| Vector DB | pgvector (Postgres extension) | SQL + vector search in one engine; `ivfflat` cosine index. |
+| Vector DB | pgvector (Postgres extension) | SQL + vector search in one engine; exact cosine search, no ANN index (see [Key design decisions](#key-design-decisions)). |
 | RAG / LLM | LangChain (`langchain-openai`) + GPT-4o-mini | Cheap, fast, good enough for grounded short-answer synthesis. |
-| Backend | FastAPI + Uvicorn | Async, typed, minimal boilerplate for 4 endpoints. |
+| Backend | FastAPI + Uvicorn + slowapi | Async, typed API; `slowapi` rate-limits `/query` and `/subscribe` per IP. |
 | Frontend | Streamlit + Plotly | Fast to build an internal analytical dashboard; not meant to be a production consumer UI. |
-| Subscriptions | SQLite + Resend | A single email-alert list doesn't need its own Postgres schema. |
+| Subscriptions | Postgres (same instance as everything else) + Resend | See [Key design decisions](#key-design-decisions) for why this isn't SQLite. |
 | Data sources | SEC EDGAR (free, no auth) + yfinance | No paid data licensing required for either filings or prices. |
-| Infra | Docker Compose | One command brings up Postgres; API/Streamlit can run in containers or directly in a venv. |
+| Infra | Docker Compose (local) / Render (hosted) | One command brings up Postgres locally; the API and Streamlit dashboard are deployed as separate Render web services in production. |
 
 ---
 
@@ -253,14 +256,27 @@ DATABASE_URL=postgresql://filingpulse:filingpulse@localhost:5432/filingpulse
 
 ---
 
+## Deploying it
+
+Runs as two independent Render web services plus a Render Postgres instance — no Docker required in production:
+
+- **Database**: Render Postgres, schema applied once from `db/schema.sql`. Data was migrated in from a local Docker Postgres using batched `psycopg2.extras.execute_values` calls rather than re-embedding — no reason to pay OpenAI twice for the same vectors.
+- **API service**: builds from `requirements-api.txt` (no torch/transformers — the API never touches FinBERT, only pgvector and OpenAI), runs `uvicorn api.main:app --host 0.0.0.0 --port $PORT`.
+- **Streamlit service**: builds from `requirements-web.txt`, runs `streamlit run app/streamlit_app.py --server.port $PORT --server.address 0.0.0.0`, and needs one environment variable — `API_URL` pointing at the API service's public Render URL. Live at [filingpilse-app.onrender.com](https://filingpilse-app.onrender.com).
+- **`runtime.txt` pins Python 3.11.9** on both services. Render's default runtime tracks the latest Python release, which at time of deploy was 3.14 — too new for prebuilt wheels of `pydantic-core`, `protobuf`, and friends, so builds either failed compiling from source (no Rust toolchain available in Render's build sandbox) or crashed at import time. 3.11 has none of these gaps.
+
+Environment variables needed on the API service: `DATABASE_URL` (Render's *internal* connection string — free and faster than the external one for service-to-service traffic), `OPENAI_API_KEY`, `RESEND_API_KEY`. The Streamlit service only needs `API_URL` — it never talks to Postgres or OpenAI directly.
+
+---
+
 ## API reference
 
 | Endpoint | Method | Body / Params | Returns |
 |---|---|---|---|
 | `/health` | GET | — | `{"status": "ok"}` |
 | `/sentiment` | GET | `?ticker=AAPL` | Full tone-shift history for that ticker |
-| `/query` | POST | `{"question": str, "ticker": str\|null, "date": str\|null}` | `{"answer": str, "citations": [...]}` |
-| `/subscribe` | POST | `{"email": str, "ticker": str}` | Subscribes an email to tone-shift alerts for that ticker |
+| `/query` | POST | `{"question": str, "ticker": str\|null, "date": str\|null}` | `{"answer": str, "citations": [...]}`. Rate-limited to 10 requests/minute per IP; `question` capped at 500 characters. |
+| `/subscribe` | POST | `{"email": str, "ticker": str}` | Subscribes an email to tone-shift alerts for that ticker. Rate-limited to 5 requests/hour per IP. |
 
 ---
 
@@ -273,7 +289,10 @@ DATABASE_URL=postgresql://filingpulse:filingpulse@localhost:5432/filingpulse
 - **OpenAI embeddings over a local model.** We started with `all-MiniLM-L6-v2` (free, self-hosted) but found it was too sensitive to phrasing — a real user question ("why did the sentiment went down for CRWD?") scored 0.03 cosine similarity against clearly-relevant filing text, while a more formally-phrased version of the same question scored 0.40. Switching to `text-embedding-3-small` (kept at full 1536 dimensions, not truncated) fixed this directly, and at ~$0.60 to embed the entire 73K-chunk corpus, cost was never the constraint.
 - **Groundedness guard (similarity < 0.3 → refuse).** Prevents the LLM from answering when nothing relevant was actually retrieved — this is what makes "no relevant information found" a meaningful signal instead of the model just guessing anyway.
 - **Sentiment-aware retrieval for metric questions.** "Why did tone peak/decline" describes a value in `filing_sentiment`, not text any filing contains. Rather than ask an LLM to explain a number it's never shown, we look the number up directly and scope retrieval to the filing it came from.
-- **SQLite for subscriptions, not another Postgres schema.** A single email/ticker list doesn't need vector search or SQL joins — keeping it separate keeps the pgvector schema focused on retrieval.
+- **Subscriptions live in Postgres, not SQLite.** They started in SQLite locally, which is fine on a laptop — but Render's web service disks are ephemeral, wiped on every redeploy/restart. Anything meant to persist in production has to live in the one database that actually persists: Postgres.
+- **No ANN index on the embedding column.** `pgvector`'s own guidance is that exact (sequential-scan) cosine search stays fast and is more accurate than an approximate index like `ivfflat` until a table reaches roughly a million rows. At 73K rows the index bought nothing but cost real disk — measured at 4.5x the size of the actual embedding data on a space-constrained hosted Postgres plan. Dropped it; search is exact and the DB is smaller.
+- **Prompt-injection resistance via structure, not hope.** The system prompts explicitly tell the LLM that retrieved context and the user's question are untrusted data, not instructions — and the actual message sent to the model wraps them in `<context>`/`<user_question>` tags so there's a structural signal for "this is data," not just a prose framing an attacker can talk their way around.
+- **Rate limiting is in-memory, not Redis.** Each `/query` call costs 2-3 OpenAI requests, so unlimited traffic is a real cost risk. Redis-backed limits would survive restarts and work across multiple instances, but this is a single-instance deployment — in-memory (`slowapi`, per-IP) covers the actual risk without standing up another service.
 - **`langchain-community` avoided.** It's sunset/archived; all pgvector integration goes through raw SQLAlchemy instead of a LangChain vectorstore wrapper, and `langchain-openai` is used directly for the LLM call.
 
 ---
@@ -284,7 +303,4 @@ DATABASE_URL=postgresql://filingpulse:filingpulse@localhost:5432/filingpulse
 - **Two LLM calls per RAG query** (rewrite + answer) roughly double per-query latency and cost versus a single-call design — still cheap on GPT-4o-mini, but worth knowing if usage scales up.
 - **`X` (U.S. Steel) is missing** from the corpus — it fell out of SEC's `company_tickers.json` after its 2025 acquisition/delisting, not a pipeline bug.
 - **FinBERT sentiment scoring is CPU-bound and slow at scale** — roughly 0.1-0.25s/chunk, meaning a full 50-company/5-year run takes multiple hours on a laptop CPU. There's no GPU acceleration path configured.
-- **Historical bugs fixed during development, worth knowing if extending the cleaner/ingestion code:**
-  - `ingestion/cleaner.py`'s original boilerplate-stripping regex used `.*?\n` with `DOTALL` — since `get_text()` output has very few literal newlines, this could silently consume almost an entire filing's text before finding the next `\n`. Now bounded to a fixed character span instead.
-  - Inline-XBRL filings hide their entire tagged-fact data model as text inside `<ix:header>`/`display:none` blocks — without stripping these first, "cleaned" narrative text was mostly machine tags, not prose.
-  - `ingestion/edgar_client.py`'s filing-list fetch only read SEC's `recent` filings block, which silently drops older 10-Ks/10-Qs for high-volume filers (banks issuing thousands of 8-Ks/structured notes) — now pages through historical submission files when needed.
+- **Cold starts on Render's free tier.** Both services spin down after ~15 minutes idle; the first request afterward takes 30-60s to wake up. Not a bug, just the tier.
