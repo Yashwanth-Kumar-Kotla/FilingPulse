@@ -6,7 +6,7 @@
 
 It is not a "chat with your PDFs" RAG demo. The differentiator is the analytical layer underneath the chat: FinBERT sentiment scoring → statistical tone-shift detection → price correlation → retrieval-augmented Q&A that can reason over *both* the computed metrics and the underlying filing text.
 
-Current corpus: **49 companies** (financials, tech, cyclicals), **967 filings**, **73,290 chunks**, spanning ~5 years / ~20 quarters each.
+Current corpus: **50 companies** (financials, tech, cyclicals), **967 filings**, **73,290 chunks**, spanning ~5 years / ~20 quarters each.
 
 ---
 
