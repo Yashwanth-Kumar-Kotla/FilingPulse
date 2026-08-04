@@ -42,6 +42,7 @@ class SubscribeRequest(BaseModel):
     ticker: str
 
 
+#configurating 
 @app.get("/health")
 def health():
     return {"status": "OK"}
