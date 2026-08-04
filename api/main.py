@@ -20,9 +20,7 @@ DATABASE_URL = os.getenv(
 app = FastAPI(title="FilingPulse API")
 engine = create_engine(DATABASE_URL)
 
-# In-memory, per-IP rate limiting. Resets on redeploy/restart and only works
-# correctly for a single instance — acceptable here since /query costs real
-# OpenAI spend per call and this is a single-instance deployment.
+
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
