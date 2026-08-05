@@ -1,9 +1,10 @@
 import json
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError, APIError
 from sqlalchemy import create_engine, text
 
 load_dotenv()
@@ -30,8 +31,22 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
         batch = texts[i:i + EMBEDDING_BATCH_SIZE]
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
-        embeddings.extend(item.embedding for item in response.data)
+        max_retries = 10
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
+                embeddings.extend(item.embedding for item in response.data)
+                break
+            except (RateLimitError, APIError) as e:
+                retry_count += 1
+                if retry_count >= max_retries:
+                    raise
+                wait_time = min(2 ** retry_count, 60)
+                error_type = "Rate limited" if isinstance(e, RateLimitError) else "API error"
+                print(f"  {error_type}. Retrying in {wait_time}s... (attempt {retry_count}/{max_retries})")
+                time.sleep(wait_time)
 
     return embeddings
 
@@ -55,7 +70,13 @@ def store_chunks(
     sentiment_lookup = _load_sentiment_lookup(sentiment_path)
     tone_shifts = json.loads(Path(tone_shifts_path).read_text())
 
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=2,
+        max_overflow=0,
+        pool_pre_ping=True,
+        pool_recycle=3600
+    )
 
     print(f"  Embedding {len(chunks)} chunks with {EMBEDDING_MODEL}...")
     embeddings = embed_texts([c["text"] for c in chunks])
